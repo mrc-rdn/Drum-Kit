@@ -1,105 +1,69 @@
 // =========================
-// PRELOAD SOUNDS
+// WEB AUDIO API DRUM KIT
 // =========================
-const sounds = {
-  w: new Audio("sounds/tom-1.mp3"),
-  a: new Audio("sounds/tom-2.mp3"),
-  s: new Audio("sounds/tom-3.mp3"),
-  d: new Audio("sounds/tom-4.mp3"),
-  j: new Audio("sounds/snare.mp3"),
-  k: new Audio("sounds/crash.mp3"),
-  l: new Audio("sounds/kick-bass.mp3"),
+
+const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+const soundFiles = {
+  w: "sounds/tom-1.mp3",
+  a: "sounds/tom-2.mp3",
+  s: "sounds/tom-3.mp3",
+  d: "sounds/tom-4.mp3",
+  j: "sounds/snare.mp3",
+  k: "sounds/crash.mp3",
+  l: "sounds/kick-bass.mp3",
 };
 
-// Preload all sounds
-Object.values(sounds).forEach(sound => {
-  sound.preload = "auto";
-});
+const soundBuffers = {};
 
-// =========================
-// UNLOCK AUDIO ON MOBILE
-// =========================
-let initialized = false;
+// Load all sounds into memory
+async function loadSounds() {
 
-function unlockAudio() {
-  if (initialized) return;
+  for (const key in soundFiles) {
 
-  initialized = true;
+    const response = await fetch(soundFiles[key]);
 
-  Object.values(sounds).forEach(sound => {
-    sound.volume = 0;
-    sound.play().then(() => {
-      sound.pause();
-      sound.currentTime = 0;
-      sound.volume = 1;
-    }).catch(() => {});
-  });
+    const arrayBuffer = await response.arrayBuffer();
+
+    soundBuffers[key] = await audioContext.decodeAudioData(arrayBuffer);
+
+  }
+
 }
 
-document.addEventListener("touchstart", unlockAudio, { once: true });
-document.addEventListener("click", unlockAudio, { once: true });
+loadSounds();
 
-// =========================
-// BUTTON EVENTS
-// =========================
-const drums = document.querySelectorAll(".drum");
+// Unlock AudioContext on first touch
+document.addEventListener("touchstart", () => {
+  if (audioContext.state === "suspended") {
+    audioContext.resume();
+  }
+}, { once: true });
 
-drums.forEach(button => {
+document.addEventListener("click", () => {
+  if (audioContext.state === "suspended") {
+    audioContext.resume();
+  }
+}, { once: true });
 
-  // Desktop
-  button.addEventListener("click", function () {
-
-    const key = this.innerHTML.trim();
-
-    makeSound(key);
-    buttonAnimation(key);
-
-  });
-
-  // Mobile (faster than click)
-  button.addEventListener("touchstart", function (e) {
-
-    e.preventDefault();
-
-    const key = this.innerHTML.trim();
-
-    makeSound(key);
-    buttonAnimation(key);
-
-  }, { passive: false });
-
-});
-
-// =========================
-// KEYBOARD EVENTS
-// =========================
-document.addEventListener("keydown", function (event) {
-
-  makeSound(event.key.toLowerCase());
-  buttonAnimation(event.key.toLowerCase());
-
-});
-
-// =========================
-// PLAY SOUND
-// =========================
+// Play Sound
 function makeSound(key) {
 
-  const sound = sounds[key];
+  const buffer = soundBuffers[key];
 
-  if (!sound) return;
+  if (!buffer) return;
 
-  sound.currentTime = 0;
+  const source = audioContext.createBufferSource();
 
-  sound.play().catch(err => {
-    console.log(err);
-  });
+  source.buffer = buffer;
+
+  source.connect(audioContext.destination);
+
+  source.start(0);
 
 }
 
-// =========================
-// BUTTON ANIMATION
-// =========================
+// Animation
 function buttonAnimation(currentKey) {
 
   const activeButton = document.querySelector("." + currentKey);
@@ -109,7 +73,35 @@ function buttonAnimation(currentKey) {
   activeButton.classList.add("pressed");
 
   setTimeout(() => {
+
     activeButton.classList.remove("pressed");
+
   }, 100);
 
 }
+
+// Mouse
+document.querySelectorAll(".drum").forEach(button => {
+
+  button.addEventListener("click", function () {
+
+    const key = this.innerHTML.trim().toLowerCase();
+
+    makeSound(key);
+
+    buttonAnimation(key);
+
+  });
+
+});
+
+// Keyboard
+document.addEventListener("keydown", function (event) {
+
+  const key = event.key.toLowerCase();
+
+  makeSound(key);
+
+  buttonAnimation(key);
+
+});
