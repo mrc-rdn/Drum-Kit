@@ -1,5 +1,6 @@
-var numberOfDrumButtons = document.querySelectorAll(".drum").length;
-
+// =========================
+// PRELOAD SOUNDS
+// =========================
 const sounds = {
   w: new Audio("sounds/tom-1.mp3"),
   a: new Audio("sounds/tom-2.mp3"),
@@ -8,53 +9,106 @@ const sounds = {
   j: new Audio("sounds/snare.mp3"),
   k: new Audio("sounds/crash.mp3"),
   l: new Audio("sounds/kick-bass.mp3"),
+};
 
-}
-
+// Preload all sounds
 Object.values(sounds).forEach(sound => {
   sound.preload = "auto";
 });
 
-for (var i = 0; i < numberOfDrumButtons; i++) {
+// =========================
+// UNLOCK AUDIO ON MOBILE
+// =========================
+let initialized = false;
 
-  document.querySelectorAll(".drum")[i].addEventListener("click", function() {
+function unlockAudio() {
+  if (initialized) return;
 
-    var buttonInnerHTML = this.innerHTML;
+  initialized = true;
 
-    makeSound(buttonInnerHTML);
+  Object.values(sounds).forEach(sound => {
+    sound.volume = 0;
+    sound.play().then(() => {
+      sound.pause();
+      sound.currentTime = 0;
+      sound.volume = 1;
+    }).catch(() => {});
+  });
+}
 
-    buttonAnimation(buttonInnerHTML);
+document.addEventListener("touchstart", unlockAudio, { once: true });
+document.addEventListener("click", unlockAudio, { once: true });
 
+// =========================
+// BUTTON EVENTS
+// =========================
+const drums = document.querySelectorAll(".drum");
+
+drums.forEach(button => {
+
+  // Desktop
+  button.addEventListener("click", function () {
+
+    const key = this.innerHTML.trim();
+
+    makeSound(key);
+    buttonAnimation(key);
+
+  });
+
+  // Mobile (faster than click)
+  button.addEventListener("touchstart", function (e) {
+
+    e.preventDefault();
+
+    const key = this.innerHTML.trim();
+
+    makeSound(key);
+    buttonAnimation(key);
+
+  }, { passive: false });
+
+});
+
+// =========================
+// KEYBOARD EVENTS
+// =========================
+document.addEventListener("keydown", function (event) {
+
+  makeSound(event.key.toLowerCase());
+  buttonAnimation(event.key.toLowerCase());
+
+});
+
+// =========================
+// PLAY SOUND
+// =========================
+function makeSound(key) {
+
+  const sound = sounds[key];
+
+  if (!sound) return;
+
+  sound.currentTime = 0;
+
+  sound.play().catch(err => {
+    console.log(err);
   });
 
 }
 
-document.addEventListener("keydown", function(event) {
-
-  makeSound(event.key);
-
-  buttonAnimation(event.key);
-
-});
-
-
-
-function makeSound(key) {
-  const sound = sounds[key];
-
-  if (sound) {
-    sound.currentTime = 0; // restart if clicked quickly
-    sound.play();
-  }
-}
-
+// =========================
+// BUTTON ANIMATION
+// =========================
 function buttonAnimation(currentKey) {
 
-  var activeButton = document.querySelector("." + currentKey);
+  const activeButton = document.querySelector("." + currentKey);
+
+  if (!activeButton) return;
 
   activeButton.classList.add("pressed");
 
-  setTimeout(function() {
+  setTimeout(() => {
     activeButton.classList.remove("pressed");
   }, 100);
 
